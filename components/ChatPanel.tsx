@@ -164,12 +164,12 @@ export default function ChatPanel({ onHighlight }: ChatPanelProps) {
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Ask about orders, deliveries, payments..."
                         disabled={loading}
-                        className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-blue-400 disabled:bg-gray-50 disabled:text-gray-400"
+                        className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none text-black focus:border-blue-400 disabled:bg-gray-50 disabled:text-gray-400"
                     />
                     <button
                         type="submit"
                         disabled={loading || !input.trim()}
-                        className="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-blue-600 transition-colors"
+                        className="px-3 py-2 bg-blue-500 text-white text-sm rounded-lg disabled:opacity-40 hover:bg-blue-600 transition-colors cursor-pointer"
                     >
                         Send
                     </button>
