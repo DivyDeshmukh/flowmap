@@ -19,10 +19,11 @@ import FlowNode from './FlowNode'
 const nodeTypes = { flowNode: FlowNode }
 
 interface GraphCanvasProps {
-    onNodeClick: (data: Record<string, unknown>) => void
+    onNodeClick: (data: Record<string, unknown>) => void;
+    highlightedNodeIds: string[];
 }
 
-export default function GraphCanvas({ onNodeClick }: GraphCanvasProps) {
+export default function GraphCanvas({ onNodeClick, highlightedNodeIds }: GraphCanvasProps) {
     const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
     const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
     const [loading, setLoading] = useState(true)
@@ -43,7 +44,20 @@ export default function GraphCanvas({ onNodeClick }: GraphCanvasProps) {
             })
             .catch(e => setError(e.message))
             .finally(() => setLoading(false))
-    }, [])
+    }, []);
+
+    useEffect(() => {
+        if (!highlightedNodeIds.length) return
+        const highlightSet = new Set(highlightedNodeIds)
+
+        setNodes(prev => prev.map(node => ({
+            ...node,
+            data: {
+                ...node.data,
+                highlighted: highlightSet.has(node.id)
+            }
+        })))
+    }, [highlightedNodeIds])
 
     // Called on double-click — fetches neighbors and merges into canvas
     const expandNode = useCallback(async (nodeId: string) => {
