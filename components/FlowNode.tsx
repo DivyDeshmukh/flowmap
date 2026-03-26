@@ -23,6 +23,7 @@ interface FlowNodeProps {
         nodeType: string;
         label: string;
         flow_status?: string;
+        highlighted?: boolean;
         [key: string]: unknown
     }
     selected: boolean
@@ -41,9 +42,12 @@ export default function FlowNode({ data, selected }: FlowNodeProps) {
             <Handle type="target" position={Position.Left} className="bg-gray-400!" />
 
             <div className={`
-                min-w-40 rounded-lg border-2 ${colors.border} ${colors.bg}
+                min-w-40 rounded-lg border-2 cursor-pointer
+                ${data.highlighted
+                    ? 'border-yellow-400 bg-yellow-50 ring-4 ring-yellow-300 ring-offset-1 shadow-xl shadow-yellow-200'
+                    : `${colors.border} ${colors.bg} shadow-sm`
+                }
                 ${selected ? 'ring-2 ring-offset-1 ring-gray-800' : ''}
-                shadow-sm cursor-pointer
             `}>
                 {/* Top badge — shows node type + flow status dot for SOs */}
                 <div className={`${colors.badge} rounded-t-md px-2 py-0.5 flex items-center justify-between`}>

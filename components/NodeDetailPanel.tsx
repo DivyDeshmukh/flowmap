@@ -1,6 +1,6 @@
 'use client';
 
-const SKIP_KEYS = new Set(['nodeType', 'label']);
+const SKIP_KEYS = new Set(['nodeType', 'label', 'highlighted']);
 
 // "total_net_amount" -> "Total Net Amount"
 function formatKey(key: string): string {
