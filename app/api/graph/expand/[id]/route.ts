@@ -19,6 +19,9 @@ export async function GET(
         if (edge.source_id !== id) {
             neighborMap.set(edge.source_id, { id: edge.source_id, type: edge.source_type });
         }
+        if (edge.target_id !== id) {
+            neighborMap.set(edge.target_id, { id: edge.target_id, type: edge.target_type });
+        }
     }
 
     // Group by type for batch metatdata fetch
@@ -110,3 +113,4 @@ export async function GET(
 
     return Response.json({ nodes: rfNodes, edges: rfEdges });
 }
+

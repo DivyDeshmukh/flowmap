@@ -2,7 +2,7 @@
 // Left to right = the O2C flow direction.
 
 import supabase from "@/lib/db/client";
-import { fetchEdges } from "@/lib/utils/graph";
+import { fetchEdges, getLabel } from "@/lib/utils/graph";
 import { NextRequest } from "next/server";
 
 // Multiple nodes of the same type stack vertically (Y increases by 150px each).
@@ -14,20 +14,6 @@ const TYPE_X: Record<string, number> = {
     journal_entry: 1200,
     payment: 1500
 };
-
-// Derive a short human-readable label for each node type. Falls back to the type name if metadata is missing
-function getLabel(type: string, meta?: Record<string, unknown>): string {
-    if (!meta) return type.replace(/_/g, ' ').toUpperCase()
-    switch (type) {
-        case 'customer': return String(meta.full_name ?? meta.customer_id)
-        case 'sales_order': return `SO ${meta.sales_order_id}`
-        case 'delivery': return `DEL ${meta.delivery_id}`
-        case 'billing_doc': return `BILL ${meta.billing_doc_id}`
-        case 'journal_entry': return `JE ${meta.accounting_doc_id}`
-        case 'payment': return `PAY ${meta.payment_id}`
-        default: return type
-    }
-}
 
 export async function GET(_req: NextRequest) {
     // Seed nodes
