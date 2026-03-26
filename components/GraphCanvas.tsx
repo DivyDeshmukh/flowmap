@@ -47,9 +47,9 @@ export default function GraphCanvas({ onNodeClick, highlightedNodeIds }: GraphCa
     }, []);
 
     useEffect(() => {
-        if (!highlightedNodeIds.length) return
+        // Run even when empty — empty set makes highlighted=false on all nodes
+        // This clears highlights when off-topic or broken query returns node_ids: []
         const highlightSet = new Set(highlightedNodeIds)
-
         setNodes(prev => prev.map(node => ({
             ...node,
             data: {

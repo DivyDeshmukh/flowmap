@@ -35,57 +35,58 @@ export default function ChatPanel({ onHighlight }: ChatPanelProps) {
     }, [messages]);
 
     async function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
-        const question = input.trim();
-        if (!question || loading) return;
+        e.preventDefault()
+        const question = input.trim()
+        if (!question || loading) return
 
-        // Add user message immediately so UI feels responsive
-        const userMsg: Message = {
-            id: Date.now().toString(),
-            role: "user",
-            content: question,
-        };
+        const history = messages
+            .filter(m => m.id !== 'welcome')
+            .slice(-6)
+            .map(m => ({ role: m.role, content: m.content }))
 
-        setMessages((prev) => [...prev, userMsg]);
-        setInput("");
-        setLoading(true);
+        const userMsg: Message = { id: Date.now().toString(), role: 'user', content: question }
+        setMessages(prev => [...prev, userMsg])
+        setInput('')
+        setLoading(true)
+
+        // Placeholder message shown while waiting for response
+        const streamId = (Date.now() + 1).toString()
+        setMessages(prev => [...prev, { id: streamId, role: 'assistant', content: '' }])
 
         try {
-            const res = await fetch("/api/chat", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ question }),
-            });
-            const data = await res.json();
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question, history })
+            })
 
-            const assistantMsg: Message = {
-                id: (Date.now() + 1).toString(),
-                role: "assistant",
-                content: data.error ? `Error: ${data.error}` : data.answer,
-                sql: data.sql,
-                rowCount: Array.isArray(data.rows) ? data.rows.length : undefined,
-                error: data.error,
-            };
-            setMessages((prev) => [...prev, assistantMsg]);
+            const data = await res.json()
 
-            // Highlight referenced nodes on graph if any
-            if (data.node_ids?.length) {
-                onHighlight(data.node_ids);
+            if (data.error) {
+                setMessages(prev => prev.map(m =>
+                    m.id === streamId
+                        ? { ...m, content: `Error: ${data.error}`, error: data.error }
+                        : m
+                ))
+            } else {
+                setMessages(prev => prev.map(m =>
+                    m.id === streamId
+                        ? { ...m, content: data.answer, sql: data.sql, rowCount: data.row_count }
+                        : m
+                ))
+                onHighlight(data.node_ids ?? [])
             }
-        } catch (error) {
-            setMessages((prev) => [
-                ...prev,
-                {
-                    id: (Date.now() + 1).toString(),
-                    role: "assistant",
-                    content: "Something went wrong. Please try again.",
-                    error: "network error",
-                },
-            ]);
+        } catch (_err) {
+            setMessages(prev => prev.map(m =>
+                m.id === streamId
+                    ? { ...m, content: 'Something went wrong. Please try again.', error: 'network error' }
+                    : m
+            ))
         } finally {
-            setLoading(false);
+            setLoading(false)
         }
     }
+
 
     return (
         <div className="w-96 border-l border-gray-200 bg-white flex flex-col h-full shrink-0">

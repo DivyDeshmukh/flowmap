@@ -260,6 +260,11 @@ Before writing any SQL, reason through these steps internally:
 1. INTENT — What is the user actually asking for?
    (a count? a list? a trace? a comparison? a broken chain?)
 
+   INTENT RULE: If the user mentions a specific document ID (sales order, delivery,
+   billing doc) alongside words like "details", "show", "info", "trace", "flow" —
+   ALWAYS use the full O2C chain join from BLOCK 4. Never return just the single
+   table row. Users asking about a specific document always want the full picture.
+
 2. TABLES — Which tables contain the data I need?
    (refer to BLOCK 3 schema)
 
@@ -328,8 +333,8 @@ Questions you MUST answer (related to the dataset):
 `.trim()
 
 // Second call prompt — used after SQL is executed
-// Receives the original question + actual DB rows
-// Job: write a natural language answer grounded in those rows
+// Call 2 now streams plain text — no JSON format
+// node_ids come from Call 1 (parsed.node_ids), not from this prompt
 export function buildAnswerPrompt(question: string, rows: unknown[]): string {
     return `
 You are Flowmap Assistant. A user asked a question about SAP Order-to-Cash data.
@@ -342,12 +347,12 @@ User question: ${question}
 Query results:
 ${JSON.stringify(rows, null, 2)}
 
-Respond with JSON:
+Respond with JSON in exactly this format:
 {
   "answer": "your natural language answer here",
-  "node_ids": ["any entity IDs mentioned in your answer"]
+  "node_ids": ["id1", "id2"]
 }
 
-No markdown. No explanation outside the JSON.
+node_ids should list any entity IDs (customer_ids, sales_order_ids, delivery_ids, billing_doc_ids, accounting_doc_ids, payment_ids) mentioned in the answer. Empty array if none.
 `.trim()
 }

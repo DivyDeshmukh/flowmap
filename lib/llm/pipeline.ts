@@ -2,20 +2,17 @@ import supabase from "../db/client";
 import groq from "./groq";
 import { buildAnswerPrompt, SYSTEM_PROMPT } from "./prompts";
 
-// Structure of Call 1 output from LLM
 interface LLMSQLResponse {
     sql: string | null;
     answer: string;
     node_ids: string[];
 }
 
-// Structure of Call 2 output from LLM
 interface LLMAnswerResponse {
     answer: string;
     node_ids: string[]
 }
 
-// Final shape returned to the chat API route
 export interface PipelineResult {
     answer: string;
     sql: string | null;
@@ -23,21 +20,27 @@ export interface PipelineResult {
     node_ids: string[];
 }
 
-export async function runChatPipeline(question: string): Promise<PipelineResult> {
-    // Call 1: Question -> SQL
+export interface HistoryMessage {
+    role: 'user' | 'assistant'
+    content: string;
+}
+
+export async function runChatPipeline(question: string, history: HistoryMessage[] = []): Promise<PipelineResult> {
+
+    // Call 1: Question → SQL
+    // History injected so LLM has context for follow-up questions
     const call1 = await groq.chat.completions.create({
         model: "llama-3.3-70b-versatile",
-        temperature: 0.1,       // as we do not want randomness
+        temperature: 0.1,
         response_format: { type: "json_object" },
         messages: [
             { role: "system", content: SYSTEM_PROMPT },
+            ...history,
             { role: "user", content: `Question: ${question}\n\nThink step by step, then respond with JSON.` }
         ]
     });
 
-    // Parse Call 1 response
     let parsed: LLMSQLResponse;
-
     try {
         parsed = JSON.parse(call1.choices[0].message.content ?? '{}');
     } catch (_error) {
@@ -49,18 +52,17 @@ export async function runChatPipeline(question: string): Promise<PipelineResult>
         }
     }
 
-    // GuardRails Check
-    // If LLM returned sql: null then offtopic question
+    // Guardrail — off-topic returns sql: null
     if (!parsed.sql) {
         return {
             answer: parsed.answer,
             sql: null,
             rows: [],
-            node_ids: parsed.node_ids ?? []
+            node_ids: []
         }
     }
 
-    // SQL SAFETY CHECK before running in db
+    // Safety check — only SELECT allowed
     const sqlUpper = parsed.sql.trim().toUpperCase();
     if (!sqlUpper.startsWith('SELECT')) {
         return {
@@ -71,13 +73,10 @@ export async function runChatPipeline(question: string): Promise<PipelineResult>
         }
     }
 
-    // EXECUTE SQL for supabse
     const { data: rows, error: sqlError } = await supabase
         .rpc('execute_sql', { query: parsed.sql });
-    
+
     if (sqlError) {
-        // SQL was malformed or referenced wrong table/column
-        // Return the error so user knows what went wrong
         return {
             answer: `Query failed: ${sqlError.message}. Please try rephrasing your question.`,
             sql: parsed.sql,
@@ -88,16 +87,13 @@ export async function runChatPipeline(question: string): Promise<PipelineResult>
 
     const resultRows = rows ?? [];
 
-    // Now Call 2 Data -> Natural Lanuage
+    // Call 2: rows → natural language answer
     const call2 = await groq.chat.completions.create({
         model: "llama-3.3-70b-versatile",
         temperature: 0.3,
         response_format: { type: "json_object" },
         messages: [
-            {
-                role: "user",
-                content: buildAnswerPrompt(question, resultRows)
-            }
+            { role: "user", content: buildAnswerPrompt(question, resultRows) }
         ]
     });
 
@@ -105,7 +101,6 @@ export async function runChatPipeline(question: string): Promise<PipelineResult>
     try {
         finalResponse = JSON.parse(call2.choices[0].message.content ?? '{}');
     } catch (_error) {
-        // Call 2 parse failed
         return {
             answer: "I found data but had trouble formatting the answer.",
             sql: parsed.sql,
@@ -114,10 +109,28 @@ export async function runChatPipeline(question: string): Promise<PipelineResult>
         }
     }
 
+    // Extract node_ids from actual result rows — more reliable than LLM guessing them
+    // Scans every row for known ID columns and collects their values
+    const ID_COLUMNS = new Set([
+        'sales_order_id', 'customer_id', 'delivery_id',
+        'billing_doc_id', 'accounting_doc_id', 'payment_id'
+    ])
+    const extractedIds = new Set<string>([
+        ...(finalResponse.node_ids ?? []),
+        ...(parsed.node_ids ?? [])
+    ])
+    for (const row of resultRows as Record<string, unknown>[]) {
+        for (const col of ID_COLUMNS) {
+            if (row[col] && typeof row[col] === 'string') {
+                extractedIds.add(row[col] as string)
+            }
+        }
+    }
+
     return {
         answer:   finalResponse.answer,
         sql:      parsed.sql,
         rows:     resultRows,
-        node_ids: finalResponse.node_ids ?? parsed.node_ids ?? []
+        node_ids: Array.from(extractedIds)
     }
 }
