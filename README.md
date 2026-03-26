@@ -40,6 +40,14 @@ Next.js App Router, PostgreSQL on Supabase, Llama 3.3 70B on Groq, React Flow fo
 
 ---
 
+## Database Choice
+
+The data lives in PostgreSQL on Supabase rather than a dedicated graph database like Neo4j. The O2C graph here is fixed and shallow — always the same six node types, always the same relationships, always four hops deep. Neo4j is worth the complexity when traversal depth is unknown or the schema is highly variable. Neither is true here. What the product needs is fast aggregation, flexible filtering, and the ability to run arbitrary SQL from natural language questions — all things PostgreSQL does well.
+
+The graph_edges table provides the neighbor lookup behavior of a graph database without the operational overhead of running one. Supabase was chosen specifically because it wraps PostgreSQL with a JavaScript client and RPC support, which integrates cleanly with Next.js on Vercel.
+
+---
+
 ## Graph Traversal
 
 The initial canvas loads the 20 most recently created sales orders. We start from sales orders rather than customers because a customer can have years of orders — starting there would make the initial view unreadably large.
@@ -102,12 +110,12 @@ The last 6 messages are sent with every request as a history array. The LLM rece
 
 ## Running Locally
 
-Create `.env.local` at the project root:
+Create `.env` at the project root:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-GROQ_API_KEY=your_groq_api_key
+NEXT_PUBLIC_SERVICE_ROLE_KEY=your_supabase_service_role_key
+NEXT_PUBLIC_GROQ_API_KEY=your_groq_api_key
 ```
 
 Run the migration and seed scripts once to set up the database, then start the app:
